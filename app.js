@@ -222,10 +222,10 @@ async function init() {
     // UI Setup
     setupFileInput();
 
-    // Initialize Audio Engine Immediately for Decks
+    // Initialize Listeners (Audio Engine will start on interaction)
     const audio1 = document.getElementById("audio-player");
     const audio2 = document.getElementById("audio-player-2");
-    setupAudioEngine(audio1, audio2);
+    // setupAudioEngine removed from here to prevent auto-start issues
     setupAudioListener(audio1);
     setupAudioListener(audio2);
 
@@ -1177,6 +1177,8 @@ function addToQueue(songId) {
 }
 
 function togglePlay() {
+  ensureAudioContext(); // Fix for Mobile
+
   const audio = getActiveAudio();
 
   if (isPlaying) {
@@ -1372,9 +1374,15 @@ function toggleFlowState() {
 
 // UPDATED AUDIO ENGINE FOR DUAL DECKS
 function setupAudioEngine(audio1, audio2) {
+  if (audioGraphSetup) return; // Prevent double init
+
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
-    audioCtx = new AudioContext();
+    audioCtx = new AudioContext(); // Only created on interaction now
+
+    // PRO TIP: Check for MediaElementSource count limits? 
+    // Actually, creating a new AudioContext per session is fine.
+    // The issue was creating it ON LOAD (backgrounded app).
 
     // Create 2 Sources
     sourceNode1 = audioCtx.createMediaElementSource(audio1);
@@ -1434,7 +1442,31 @@ function setupKeyboardShortcuts() {
   })
 }
 
+// NEW: Helper to ensure AudioContext is running (Mobile Fix)
+function ensureAudioContext() {
+  // If not setup yet, set it up
+  if (!audioGraphSetup) {
+    try {
+      const audio1 = document.getElementById("audio-player");
+      const audio2 = document.getElementById("audio-player-2");
+      setupAudioEngine(audio1, audio2);
+    } catch (e) {
+      console.error("Lazy init failed:", e);
+    }
+  }
+
+  // Resume if suspended
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().then(() => {
+      console.log("AudioContext resumed successfully.");
+    });
+  }
+}
+
 function playSongFromList(songId) {
+  // Fix for Mobile: Resume Context immediately on interaction
+  ensureAudioContext();
+
   // Context: Library (All songs, filtered by search/favorites)
   // Ideally we should queue "visible" songs, but simpler is "all songs"
   // Let's use the current 'songs' array (which is all songs). 

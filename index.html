@@ -626,19 +626,49 @@
         .controls {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 30px;
+            justify-content: space-between;
+            /* Better for variable widths */
+            gap: 20px;
+            /* Reduced base gap */
             margin-bottom: 24px;
             width: 100%;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
+            /* FORCE SINGLE ROW */
             min-width: 200px;
             background: rgba(255, 255, 255, 0.03);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.05);
-            padding: 20px 40px;
+            padding: 20px 30px;
+            /* Reduced base padding */
             border-radius: 24px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        @media (max-width: 480px) {
+            .controls {
+                gap: 5px;
+                /* Tight gap for mobile */
+                padding: 15px 15px;
+                /* Tight padding */
+            }
+
+            .control-btn svg {
+                width: 24px;
+                /* Slightly smaller icons */
+                height: 24px;
+            }
+
+            .play-btn {
+                width: 56px;
+                /* Smaller play button */
+                height: 56px;
+            }
+
+            .play-btn svg {
+                width: 28px;
+                height: 28px;
+            }
         }
 
         /* Utility Section Styles */

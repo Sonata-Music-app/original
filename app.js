@@ -2884,9 +2884,6 @@ if ('serviceWorker' in navigator) {
       .then(registration => {
         console.log('ServiceWorker registration successful');
 
-        // FORCE UPDATE: Ensure we always try to get the latest version
-        registration.update();
-
         // Check if we were opened via Share Target (URL param)
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('shared') === 'true') {

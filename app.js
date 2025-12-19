@@ -992,7 +992,7 @@ async function shareSong(songId) {
       await navigator.share({
         files: [file],
         title: `Song teilen: ${song.name}`,
-        text: `Hör dir "${song.name}" auf SONATA an!`
+        text: `Hör dir "${song.name}" an! 🎵\n\nDatei mit SONATA öffnen: https://sonata-music-app.github.io/original/`
       });
     } else {
       showToast("Teilen von Dateien wird nicht unterstützt", "error");
@@ -2829,3 +2829,66 @@ togglePlay = function () {
     if (isAuraEnabled) drawAura();
   }
 };
+
+// ============================================
+// Service Worker Registration & Share Target Handler
+// ============================================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(registration => {
+        console.log('ServiceWorker registration successful');
+
+        // Check if we were opened via Share Target (URL param)
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('shared') === 'true') {
+          // Logic to retrieve the file from SW
+          navigator.serviceWorker.controller?.postMessage({ type: 'GET_SHARED_FILE' });
+        }
+      })
+      .catch(err => {
+        console.log('ServiceWorker registration failed: ', err);
+      });
+
+    // Listen for file from SW
+    navigator.serviceWorker.addEventListener('message', async (event) => {
+      if (event.data && event.data.type === 'SHARED_FILE' && event.data.file) {
+        const file = event.data.file;
+        showToast(`Empfange: ${file.name}`);
+
+        // Process the file
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+
+          const newSong = {
+            id: crypto.randomUUID(),
+            name: file.name.replace(/\.[^/.]+$/, ""), // Remove extension
+            data: arrayBuffer,
+            type: file.type,
+            dateAdded: new Date().toISOString(),
+            playCount: 0,
+            isFavorite: false
+          };
+
+          await saveSongToDB(newSong);
+          songs.push(newSong);
+
+          // Refresh UI
+          renderSongs();
+          updateStorageInfo();
+
+          // Auto-play the Shared Song
+          const index = songs.findIndex(s => s.id === newSong.id);
+          if (index !== -1) {
+            currentQueueIndex = 0; // Or better logic to queue
+            playSongFromList(newSong.id);
+            showToast("Geteilter Song importiert & abgespielt! 🎵");
+          }
+        } catch (e) {
+          console.error("Error importing shared file:", e);
+          showToast("Fehler beim Importieren der geteilten Datei", "error");
+        }
+      }
+    });
+  });
+}

@@ -21,6 +21,7 @@ let pendingUploadFiles = []
 let songToEditId = null
 let favorites = []
 let searchTerm = ""
+let currentSortMethod = "dateDesc"
 let showOnlyFavorites = false
 let isShuffle = false
 let playbackQueue = []
@@ -44,6 +45,35 @@ let midNode = null;
 let trebleNode = null;
 let compressorNode = null;
 let isEnhancerActive = false;
+
+// Professional 5-Band Equalizer
+let eqEnabled = false;
+let eq = {
+  bass: null,        // 60Hz
+  lowMid: null,      // 250Hz
+  mid: null,         // 1000Hz
+  highMid: null,     // 4000Hz
+  treble: null       // 12000Hz
+};
+let stereoNode = null; // For spatial enhancement
+let currentEQPreset = "flat";
+let analyser = null;
+let dataArray = null;
+let bufferLength = 0;
+let auraAnimationId = null;
+let isAuraEnabled = false; // Default OFF
+let auraParticles = []; // For particle system
+
+const EQ_PRESETS = {
+  flat: { name: "Flat (Aus)", bass: 0, lowMid: 0, mid: 0, highMid: 0, treble: 0, stereo: 0 },
+  bassBoost: { name: "Bass Boost", bass: 6, lowMid: 3, mid: 0, highMid: -1, treble: 2, stereo: 0 },
+  vocal: { name: "Vocal", bass: -2, lowMid: -1, mid: 4, highMid: 5, treble: 2, stereo: 0 },
+  classical: { name: "Klassik", bass: 2, lowMid: 0, mid: -1, highMid: 2, treble: 3, stereo: 15 },
+  rock: { name: "Rock", bass: 4, lowMid: 1, mid: -1, highMid: 2, treble: 4, stereo: 5 },
+  electronic: { name: "Electronic", bass: 5, lowMid: 2, mid: 0, highMid: 3, treble: 4, stereo: 10 },
+  jazz: { name: "Jazz", bass: 2, lowMid: 2, mid: 1, highMid: 1, treble: 2, stereo: 20 },
+  hiphop: { name: "Hip-Hop", bass: 7, lowMid: 4, mid: -1, highMid: 1, treble: 3, stereo: 0 }
+};
 
 const SONIC_PROFILES = {
   "rock": { name: "Rock", bass: 3, mid: 0, treble: 2, desc: "Satter Bass & klare Höhen" },
@@ -204,8 +234,103 @@ async function clearAllDB() {
     songsRequest.onerror = () => reject(songsRequest.error)
     playlistsRequest.onerror = () => reject(playlistsRequest.error)
 
-    transaction.oncomplete = () => resolve()
   })
+}
+
+// ============================================
+// Session Memory - Seamless Resume
+// ============================================
+function saveSessionState() {
+  try {
+    if (playbackQueue.length === 0 || currentQueueIndex < 0) {
+      // No active session, clear it
+      localStorage.removeItem("sessionState");
+      return;
+    }
+
+    const audio = getActiveAudio();
+    const state = {
+      currentSongId: playbackQueue[currentQueueIndex]?.id,
+      currentTime: audio?.currentTime || 0,
+      queueIds: playbackQueue.map(s => s.id),
+      currentQueueIndex: currentQueueIndex,
+      isShuffle: isShuffle,
+      isPlaying: isPlaying,
+      timestamp: Date.now()
+    };
+
+    localStorage.setItem("sessionState", JSON.stringify(state));
+  } catch (error) {
+    console.error("Failed to save session state:", error);
+  }
+}
+
+async function restoreSessionState() {
+  try {
+    const savedState = localStorage.getItem("sessionState");
+    if (!savedState) return false;
+
+    const state = JSON.parse(savedState);
+
+    // Don't restore if session is older than 24 hours
+    const hoursSinceLastSession = (Date.now() - state.timestamp) / (1000 * 60 * 60);
+    if (hoursSinceLastSession > 24) {
+      localStorage.removeItem("sessionState");
+      return false;
+    }
+
+    // Rebuild queue from saved IDs
+    const restoredQueue = state.queueIds
+      .map(id => songs.find(s => s.id === id))
+      .filter(Boolean); // Remove null entries if song was deleted
+
+    if (restoredQueue.length === 0) return false;
+
+    // Restore state
+    playbackQueue = restoredQueue;
+    originalQueue = [...restoredQueue]; // Assume it was the original
+    currentQueueIndex = Math.min(state.currentQueueIndex, restoredQueue.length - 1);
+    isShuffle = state.isShuffle;
+
+    // Restore shuffle button UI
+    const shuffleBtn = document.getElementById("shuffle-btn");
+    if (shuffleBtn) {
+      if (isShuffle) {
+        shuffleBtn.classList.add("active");
+      } else {
+        shuffleBtn.classList.remove("active");
+      }
+    }
+
+    // Load the song
+    const song = playbackQueue[currentQueueIndex];
+    if (!song) return false;
+
+    const audio = getActiveAudio();
+    const blob = new Blob([song.data], { type: song.type });
+    const url = URL.createObjectURL(blob);
+
+    audio.src = url;
+    audio.currentTime = state.currentTime;
+
+    // Update UI
+    updatePlayerDisplay();
+    updatePlayerFavoriteUI();
+    updateVinylAnimation(false); // Start paused
+
+    // If it was playing, auto-resume (optional - can be disabled for user preference)
+    // For best UX, we'll load paused and let user click play
+    isPlaying = false;
+    updatePlayButton();
+
+    console.log("✅ Session restored:", song.name, `at ${Math.floor(state.currentTime)}s`);
+
+    return true;
+  } catch (error) {
+    console.error("Failed to restore session state:", error);
+    localStorage.removeItem("sessionState");
+    return false;
+  }
 }
 
 // ============================================
@@ -252,6 +377,9 @@ async function init() {
 
     // NEW: Ensure Favorites Playlist exists
     await ensureFavoritesPlaylist();
+
+    // 🆕 SESSION MEMORY: Restore previous session
+    await restoreSessionState();
 
     // Remove any previous error toasts if everything worked
     const errorToast = document.querySelector(".toast.error.db-error");
@@ -807,6 +935,85 @@ function renderPlaylistSongs() {
 }
 
 // NEW: Render Songs with Playlist Badges
+// ============================================
+// Advanced Sorting Helpers
+// ============================================
+function toggleSortMenu() {
+  const menu = document.getElementById("sort-dropdown");
+  menu.classList.toggle("active");
+}
+
+function setSortMethod(method) {
+  currentSortMethod = method;
+
+  // Update UI highlighting
+  document.querySelectorAll(".sort-option").forEach(el => {
+    el.classList.remove("active");
+    if (el.getAttribute("onclick").includes(`'${method}'`)) {
+      el.classList.add("active");
+    }
+  });
+
+  document.getElementById("sort-dropdown").classList.remove("active");
+  renderSongs();
+}
+
+// Close dropdown when clicking outside
+window.addEventListener("click", (e) => {
+  const dropdown = document.getElementById("sort-dropdown");
+  const btn = document.getElementById("sort-btn");
+  if (dropdown && dropdown.classList.contains("active") && !dropdown.contains(e.target) && !btn.contains(e.target)) {
+    dropdown.classList.remove("active");
+  }
+});
+
+// ============================================
+// Sharing Functionality
+// ============================================
+async function shareSong(songId) {
+  try {
+    const song = songs.find(s => s.id === songId);
+    if (!song) {
+      showToast("Song nicht gefunden", "error");
+      return;
+    }
+
+    // Check if Web Share API is supported
+    if (!navigator.share) {
+      showToast("Teilen wird von diesem Gerät nicht unterstützt", "error");
+      return;
+    }
+
+    // Convert ArrayBuffer to File
+    const blob = new Blob([song.data], { type: song.type || 'audio/mp3' });
+    const file = new File([blob], `${song.name}.mp3`, { type: song.type || 'audio/mp3' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: `Song teilen: ${song.name}`,
+        text: `Hör dir "${song.name}" auf SONATA an!`
+      });
+    } else {
+      showToast("Teilen von Dateien wird nicht unterstützt", "error");
+    }
+  } catch (error) {
+    if (error.name !== 'AbortError') {
+      console.error("Fehler beim Teilen:", error);
+      showToast("Fehler beim Teilen des Songs", "error");
+    }
+  }
+}
+
+async function shareCurrentSong() {
+  if (!playbackQueue || playbackQueue.length === 0 || currentQueueIndex < 0) {
+    showToast("Kein Song ausgewählt", "error");
+    return;
+  }
+  const currentSong = playbackQueue[currentQueueIndex];
+  await shareSong(currentSong.id);
+}
+
 function renderSongs() {
   const container = document.getElementById("songs-list")
   if (!container) return
@@ -823,7 +1030,25 @@ function renderSongs() {
   }
 
   // Sorting
-  songsToRender.sort((a, b) => a.name.localeCompare(b.name))
+  // Sorting - ADVANCED
+  songsToRender.sort((a, b) => {
+    switch (currentSortMethod) {
+      case "dateDesc":
+        return new Date(b.dateAdded) - new Date(a.dateAdded);
+      case "dateAsc":
+        return new Date(a.dateAdded) - new Date(b.dateAdded);
+      case "nameAsc":
+        return a.name.localeCompare(b.name);
+      case "nameDesc":
+        return b.name.localeCompare(a.name);
+      case "durationDesc":
+        return (b.size || 0) - (a.size || 0); // Using Size as proxy
+      case "mostPlayed":
+        return (b.playCount || 0) - (a.playCount || 0);
+      default:
+        return 0;
+    }
+  });
 
   if (songsToRender.length === 0) {
     container.innerHTML = '<div class="empty-message">Keine Songs gefunden</div>'
@@ -842,7 +1067,7 @@ function renderSongs() {
         : "";
 
       return `
-        <div class="song-card ${currentSongIndex === songs.indexOf(song) && isPlaying ? "playing" : ""}">
+        <div class="song-card ${currentQueueIndex !== -1 && playbackQueue[currentQueueIndex]?.id === song.id && isPlaying ? "playing" : ""}">
             <div class="song-info" onclick="addToQueue('${song.id}')" style="cursor: pointer;" title="Zur Warteschlange hinzufügen">
                 <div class="song-name">${song.name}</div>
                 <div class="song-meta">
@@ -851,6 +1076,15 @@ function renderSongs() {
                 ${badgeHTML}
             </div>
             <div class="song-actions">
+                <button class="btn-small" onclick="event.stopPropagation(); shareSong('${song.id}')" title="Teilen">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="18" cy="5" r="3"></circle>
+                        <circle cx="6" cy="12" r="3"></circle>
+                        <circle cx="18" cy="19" r="3"></circle>
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                    </svg>
+                </button>
                 <button class="btn-small ${song.isFavorite ? "active" : ""}" onclick="toggleFavorite('${song.id}')">
                     ${song.isFavorite ? "❤️" : "🤍"}
                 </button>
@@ -1046,6 +1280,8 @@ function toggleShuffle() {
     }
     showToast("Zufallswiedergabe aus")
   }
+
+  saveSessionState(); // Save shuffle state
 }
 
 function shuffleArray(array) {
@@ -1156,6 +1392,8 @@ function playSong() {
     console.error("Fehler beim Laden des Songs:", error)
     showToast("Fehler beim Laden des Songs", "error")
   }
+
+  saveSessionState(); // Save after song loads
 }
 
 // NEW: Quick Queue Logic
@@ -1195,6 +1433,7 @@ function togglePlay() {
 
   updateVinylAnimation(isPlaying);
   updatePlayButton();
+  saveSessionState(); // Save play/pause state
 }
 
 function nextSong() {
@@ -1208,6 +1447,7 @@ function nextSong() {
   }
   // Switch deck not needed for manual skip, just reuse active
   playSong();
+  saveSessionState(); // Save after track change
 }
 
 function previousSong() {
@@ -1224,6 +1464,7 @@ function previousSong() {
     currentQueueIndex = playbackQueue.length - 1
   }
   playSong();
+  saveSessionState(); // Save after track change
 }
 
 function seekTrack() {
@@ -1265,6 +1506,12 @@ function setupAudioListener(audio) {
           updateSongStatistics(playbackQueue[currentQueueIndex].id);
           hasCountedCurrentPlay = true;
         }
+      }
+
+      // Save session state periodically (throttled to every 2 seconds)
+      if (!this._lastSaveTime || Date.now() - this._lastSaveTime > 2000) {
+        saveSessionState();
+        this._lastSaveTime = Date.now();
       }
     }
   });
@@ -1449,7 +1696,13 @@ function ensureAudioContext() {
     try {
       const audio1 = document.getElementById("audio-player");
       const audio2 = document.getElementById("audio-player-2");
-      setupAudioEngine(audio1, audio2);
+      // Initialize Audio Context and Equalizer
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      // Initialize EQ nodes
+      initializeEqualizer();
+      audioGraphSetup = true;
     } catch (e) {
       console.error("Lazy init failed:", e);
     }
@@ -2068,6 +2321,511 @@ function getTimeAgo(date) {
 }
 
 // ============================================
+// Professional 5-Band Equalizer Functions
+// ============================================
+
+let recommendedPreset = null; // For song-specific recommendations
+
+function initializeEqualizer() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+
+  // Create Analyser Node for Aura Visualizer
+  if (!analyser) {
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256; // Good balance for performance/detail
+    bufferLength = analyser.frequencyBinCount;
+    dataArray = new Uint8Array(bufferLength);
+  }
+
+  // Create 5 biquad filter nodes
+  eq.bass = audioCtx.createBiquadFilter();
+  eq.bass.type = "lowshelf";
+  eq.bass.frequency.value = 60;
+
+  eq.lowMid = audioCtx.createBiquadFilter();
+  eq.lowMid.type = "peaking";
+  eq.lowMid.frequency.value = 250;
+  eq.lowMid.Q.value = 1;
+
+  eq.mid = audioCtx.createBiquadFilter();
+  eq.mid.type = "peaking";
+  eq.mid.frequency.value = 1000;
+  eq.mid.Q.value = 1;
+
+  eq.highMid = audioCtx.createBiquadFilter();
+  eq.highMid.type = "peaking";
+  eq.highMid.frequency.value = 4000;
+  eq.highMid.Q.value = 1;
+
+  eq.treble = audioCtx.createBiquadFilter();
+  eq.treble.type = "highshelf";
+  eq.treble.frequency.value = 12000;
+
+  // Stereo width (using stereo panner)
+  stereoNode = audioCtx.createStereoPanner();
+  stereoNode.pan.value = 0;
+
+  // Connect audio elements through EQ chain
+  try {
+    const audio1 = document.getElementById("audio-player");
+    const audio2 = document.getElementById("audio-player-2");
+
+    if (audio1 && !sourceNode1) {
+      sourceNode1 = audioCtx.createMediaElementSource(audio1);
+    }
+    if (audio2 && !sourceNode2) {
+      sourceNode2 = audioCtx.createMediaElementSource(audio2);
+    }
+
+    // Create audio graph: Source -> Bass -> LowMid -> Mid -> HighMid -> Treble -> Stereo -> Destination
+    // Create audio graph: Source -> Analyser -> Bass -> ...
+    if (sourceNode1) {
+      if (analyser) sourceNode1.connect(analyser); // Connect to visualizer
+      if (analyser) analyser.connect(eq.bass);     // Continue chain
+      else sourceNode1.connect(eq.bass);
+    }
+    if (sourceNode2) {
+      // Note: Currently visualizer might only see Deck 1 if not mixed carefully.
+      // Ideally we mix both sources before analyser.
+      // For simple playback:
+      if (analyser) sourceNode2.connect(analyser);
+      if (!sourceNode1 && analyser) analyser.connect(eq.bass); // Redundant if source1 connected, but safe
+      else if (!analyser) sourceNode2.connect(eq.bass);
+    }
+
+    eq.bass.connect(eq.lowMid);
+    eq.lowMid.connect(eq.mid);
+    eq.mid.connect(eq.highMid);
+    eq.highMid.connect(eq.treble);
+    eq.treble.connect(stereoNode);
+    stereoNode.connect(audioCtx.destination);
+
+    console.log("✅ Equalizer initialized and connected");
+  } catch (e) {
+    console.error("EQ connection error:", e);
+    // Fallback: Connect directly
+    if (sourceNode1) sourceNode1.connect(audioCtx.destination);
+    if (sourceNode2) sourceNode2.connect(audioCtx.destination);
+  }
+
+  // Load saved settings
+  loadEQSettings();
+}
+
+function toggleEqualizerPanel() {
+  const modal = document.getElementById("eq-modal");
+  modal.classList.toggle("active");
+
+  // Update button state
+  const btn = document.getElementById("eq-btn");
+  if (modal.classList.contains("active")) {
+    btn.classList.add("active");
+
+    // Generate recommendation for current song
+    if (playbackQueue.length > 0 && currentQueueIndex >= 0) {
+      generateSongRecommendation();
+    }
+  } else {
+    btn.classList.remove("active");
+  }
+}
+
+function toggleEQ() {
+  eqEnabled = !eqEnabled;
+
+  const toggle = document.getElementById("eq-main-toggle");
+  const btn = document.getElementById("eq-btn");
+
+  if (eqEnabled) {
+    toggle.classList.add("active");
+    btn.classList.add("active");
+    applyAllEQBands();
+  } else {
+    toggle.classList.remove("active");
+    // Reset all bands to 0
+    Object.keys(eq).forEach(band => {
+      if (eq[band]) eq[band].gain.value = 0;
+    });
+    if (stereoNode) stereoNode.pan.value = 0;
+  }
+
+  saveEQSettings();
+}
+
+function updateEQBand(band, value) {
+  if (!eqEnabled) {
+    // Auto-enable if user moves a slider
+    eqEnabled = true;
+    document.getElementById("eq-main-toggle").classList.add("active");
+  }
+
+  const numValue = parseFloat(value);
+
+  if (band === "stereo") {
+    // Stereo width: 0-100%
+    if (stereoNode) {
+      // Convert 0-100 to -1 to 1 (subtle effect)
+      const panValue = (numValue / 100) * 0.5; // Max 50% pan for safety
+      stereoNode.pan.value = panValue;
+    }
+    document.getElementById(`eq-${band}-value`).textContent = `${numValue}%`;
+  } else {
+    // EQ bands: -12 to +12 dB
+    if (eq[band]) {
+      eq[band].gain.value = numValue;
+    }
+    document.getElementById(`eq-${band}-value`).textContent = `${numValue > 0 ? '+' : ''}${numValue} dB`;
+  }
+
+  // Clear preset selection if manually adjusted
+  document.querySelectorAll(".eq-preset-btn").forEach(btn => btn.classList.remove("active"));
+  currentEQPreset = "custom";
+
+  saveEQSettings();
+}
+
+function applyEQPreset(presetName) {
+  const preset = EQ_PRESETS[presetName];
+  if (!preset) return;
+
+  currentEQPreset = presetName;
+
+  // Update UI
+  document.querySelectorAll(".eq-preset-btn").forEach(btn => btn.classList.remove("active"));
+  event.target.classList.add("active");
+
+  // Apply values
+  Object.keys(preset).forEach(key => {
+    if (key === "name") return;
+
+    const value = preset[key];
+    const slider = document.getElementById(`eq-${key}`);
+
+    if (slider) {
+      slider.value = value;
+      updateEQBand(key, value);
+    }
+  });
+
+  // Auto-enable if not already
+  if (!eqEnabled && presetName !== "flat") {
+    toggleEQ();
+  } else if (presetName === "flat") {
+    // Flat = disable
+    if (eqEnabled) toggleEQ();
+  }
+
+  saveEQSettings();
+}
+
+function applyAllEQBands() {
+  // Apply current slider values
+  ["bass", "lowMid", "mid", "highMid", "treble", "stereo"].forEach(band => {
+    const slider = document.getElementById(`eq-${band}`);
+    if (slider) {
+      updateEQBand(band, slider.value);
+    }
+  });
+}
+
+function resetEQ() {
+  applyEQPreset("flat");
+}
+
+function generateSongRecommendation() {
+  const song = playbackQueue[currentQueueIndex];
+  if (!song) {
+    document.getElementById("eq-recommendation").style.display = "none";
+    return;
+  }
+
+  // Simple heuristic based on file size and playlist genre
+  let recommended = "bassBoost"; // default
+  let reason = "Für einen kräftigen, modernen Sound";
+
+  // Check playlist genre
+  const playlist = playlists.find(p => p.songs.includes(song.id));
+  if (playlist && playlist.genre) {
+    const genre = playlist.genre.toLowerCase();
+
+    if (genre.includes("classic") || genre === "classical") {
+      recommended = "classical";
+      reason = "Klassische Musik profitiert von räumlicher Breite und klaren Höhen";
+    } else if (genre.includes("rock")) {
+      recommended = "rock";
+      reason = "Rock Songs klingen besser mit betonten Mitten und Höhen";
+    } else if (genre.includes("electronic") || genre.includes("edm")) {
+      recommended = "electronic";
+      reason = "Electronic Musik braucht starken Bass und brillante Höhen";
+    } else if (genre.includes("jazz")) {
+      recommended = "jazz";
+      reason = "Jazz profitiert von warmen Mitten und weitem Stereo-Bild";
+    } else if (genre.includes("hip") || genre.includes("hop") || genre.includes("rap")) {
+      recommended = "hiphop";
+      reason = "Hip-Hop lebt von tiefem, druckvollem Bass";
+    } else if (genre.includes("pop")) {
+      recommended = "vocal";
+      reason = "Pop-Songs profitieren von klaren Vocals in den Mitten";
+    }
+  }
+
+  // Show recommendation
+  recommendedPreset = recommended;
+  const preset = EQ_PRESETS[recommended];
+
+  document.getElementById("eq-recommendation-text").innerHTML = `
+    <strong>${preset.name}</strong>: ${reason}<br>
+    <small style="color: var(--text-muted);">Bass: ${preset.bass > 0 ? '+' : ''}${preset.bass}dB, 
+    Mid: ${preset.mid > 0 ? '+' : ''}${preset.mid}dB, 
+    Treble: ${preset.treble > 0 ? '+' : ''}${preset.treble}dB, 
+    Stereo: ${preset.stereo}%</small>
+  `;
+
+  document.getElementById("eq-recommendation").style.display = "block";
+}
+
+function applyRecommendedEQ() {
+  if (recommendedPreset) {
+    applyEQPreset(recommendedPreset);
+  }
+}
+
+function saveEQSettings() {
+  const settings = {
+    enabled: eqEnabled,
+    preset: currentEQPreset,
+    bands: {
+      bass: document.getElementById("eq-bass")?.value || 0,
+      lowMid: document.getElementById("eq-lowMid")?.value || 0,
+      mid: document.getElementById("eq-mid")?.value || 0,
+      highMid: document.getElementById("eq-highMid")?.value || 0,
+      treble: document.getElementById("eq-treble")?.value || 0,
+      stereo: document.getElementById("eq-stereo")?.value || 0
+    }
+  };
+
+  localStorage.setItem("eqSettings", JSON.stringify(settings));
+}
+
+function loadEQSettings() {
+  try {
+    const saved = localStorage.getItem("eqSettings");
+    if (!saved) return;
+
+    const settings = JSON.parse(saved);
+
+    // Restore enabled state
+    eqEnabled = settings.enabled || false;
+    if (eqEnabled) {
+      document.getElementById("eq-main-toggle")?.classList.add("active");
+      document.getElementById("eq-btn")?.classList.add("active");
+    }
+
+    // Restore band values
+    Object.keys(settings.bands).forEach(band => {
+      const slider = document.getElementById(`eq-${band}`);
+      if (slider) {
+        slider.value = settings.bands[band];
+        updateEQBand(band, settings.bands[band]);
+      }
+    });
+
+    // Restore preset if any
+    if (settings.preset && settings.preset !== "custom") {
+      currentEQPreset = settings.preset;
+      document.querySelectorAll(".eq-preset-btn").forEach(btn => {
+        if (btn.onclick && btn.onclick.toString().includes(settings.preset)) {
+          btn.classList.add("active");
+        }
+      });
+    }
+
+    console.log("✅ EQ settings loaded");
+  } catch (e) {
+    console.error("Failed to load EQ settings:", e);
+  }
+}
+
+// ============================================
+// ============================================
 // Start Application
 // ============================================
 init()
+// ============================================
+// ============================================
+// Aura Visualizer Loop (Premium Redesign)
+// ============================================
+
+// Particle System
+class AuraParticle {
+  constructor(w, h) {
+    this.angle = Math.random() * Math.PI * 2;
+    this.radius = 100 + Math.random() * 100;
+    this.size = Math.random() * 3 + 1;
+    this.speed = Math.random() * 0.02 + 0.005;
+    this.life = Math.random() * 0.5 + 0.5;
+    this.decay = Math.random() * 0.01 + 0.005;
+    this.canvasWidth = w;
+    this.canvasHeight = h;
+  }
+
+  update(bassEnergy) {
+    this.angle += this.speed + (bassEnergy / 5000); // Spin faster with bass
+    this.radius += (bassEnergy / 50); // Expand with bass
+    this.life -= this.decay;
+    return this.life > 0;
+  }
+
+  draw(ctx, centerX, centerY, bassEnergy) {
+    const x = centerX + Math.cos(this.angle) * this.radius;
+    const y = centerY + Math.sin(this.angle) * this.radius;
+
+    ctx.beginPath();
+    ctx.arc(x, y, this.size * (1 + bassEnergy / 100), 0, 2 * Math.PI);
+    ctx.fillStyle = `rgba(212, 175, 55, ${this.life * (bassEnergy / 150)})`;
+    ctx.fill();
+  }
+}
+
+function drawAura() {
+  if (!isPlaying || !analyser || !isAuraEnabled) {
+    // Clear canvas if stopped or disabled
+    const canvas = document.getElementById("aura-canvas");
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    cancelAnimationFrame(auraAnimationId);
+    return;
+  }
+
+  auraAnimationId = requestAnimationFrame(drawAura);
+
+  analyser.getByteFrequencyData(dataArray);
+
+  const canvas = document.getElementById("aura-canvas");
+  if (!canvas) return;
+
+  // Resize logic (simple)
+  if (canvas.width !== canvas.offsetWidth) {
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+  }
+
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  // Vinyl radius approx 30% of canvas
+  const baseRadius = Math.min(width, height) * 0.3;
+
+  // Partial clear for trail effect? No, clean clear for crispness
+  ctx.clearRect(0, 0, width, height);
+
+  // Calculate Frequencies
+  let bassEnergy = 0;
+
+  // Bass: 0-10
+  for (let i = 0; i < 10; i++) bassEnergy += dataArray[i];
+  bassEnergy = bassEnergy / 10;
+
+  // Scale pulse
+  const scale = 1 + (bassEnergy / 255) * 0.2;
+
+  // --- LAYER 1: Core Glow (The "Start") ---
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, baseRadius * scale, 0, 2 * Math.PI);
+  const gradient = ctx.createRadialGradient(centerX, centerY, baseRadius * 0.8, centerX, centerY, baseRadius * scale * 1.8);
+  gradient.addColorStop(0, "rgba(0,0,0,0)");
+  gradient.addColorStop(0.4, `rgba(212, 175, 55, ${bassEnergy / 600})`); // Faint Gold
+  gradient.addColorStop(0.6, `rgba(255, 215, 0, ${bassEnergy / 300})`); // Bright Gold
+  gradient.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = gradient;
+
+  // Blend mode for extra shine
+  ctx.globalCompositeOperation = "screen";
+  ctx.fill();
+  ctx.globalCompositeOperation = "source-over"; // Reset
+
+  // --- LAYER 2: Dynamic Rays (Shockwaves) ---
+  if (bassEnergy > 100) {
+    const rayCount = 12;
+    ctx.beginPath();
+    for (let i = 0; i < rayCount; i++) {
+      const angle = (i / rayCount) * Math.PI * 2 + (Date.now() / 1000); // Rotate
+      const rayLength = baseRadius * (1 + (bassEnergy / 200));
+      const x = centerX + Math.cos(angle) * rayLength;
+      const y = centerY + Math.sin(angle) * rayLength;
+      ctx.moveTo(centerX, centerY);
+      ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = `rgba(255, 255, 255, ${bassEnergy / 1000})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // --- LAYER 3: Particles ---
+  // Spawn particles on kick
+  if (bassEnergy > 180 && auraParticles.length < 50) {
+    auraParticles.push(new AuraParticle(width, height));
+  }
+
+  // Update and Draw Particles
+  for (let i = auraParticles.length - 1; i >= 0; i--) {
+    const p = auraParticles[i];
+    if (!p.update(bassEnergy)) {
+      auraParticles.splice(i, 1);
+    } else {
+      p.draw(ctx, centerX, centerY, bassEnergy);
+    }
+  }
+}
+
+function toggleAura() {
+  isAuraEnabled = !isAuraEnabled;
+  const btn = document.getElementById("aura-toggle-btn");
+
+  // Handle checkbox state if called programmatically vs click
+  const checkbox = document.getElementById("aura-toggle-btn");
+  if (checkbox && checkbox.checked !== isAuraEnabled) {
+    checkbox.checked = isAuraEnabled;
+  }
+
+  if (isAuraEnabled) {
+    showToast("✨ Aura Visualizer: EIN");
+    drawAura(); // Start loop if playing
+  } else {
+    showToast("Aura Visualizer: AUS");
+    // Loop will stop automatically inside drawAura via check
+    // Manually clear once
+    const canvas = document.getElementById("aura-canvas");
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+}
+
+// Hook into Play
+const _originalPlay = playSong;
+playSong = function () {
+  // Determine if AudioContext needs init (start on user gesture)
+  if (!audioCtx) initializeEqualizer();
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+  _originalPlay();
+  if (isAuraEnabled) drawAura();
+};
+
+// Hook into Pause
+const _originalTogglePlay = togglePlay;
+togglePlay = function () {
+  _originalTogglePlay();
+  if (isPlaying) {
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    if (isAuraEnabled) drawAura();
+  }
+};

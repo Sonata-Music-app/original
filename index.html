@@ -144,6 +144,63 @@
             pointer-events: none;
         }
 
+        /* Sort Dropdown */
+        .filter-container {
+            position: relative;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            z-index: 20;
+            /* Ensure dropdown is on top */
+        }
+
+        .sort-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: #1a1a1a;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 8px;
+            display: none;
+            z-index: 100;
+            min-width: 200px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+            /* Stronger shadow */
+            margin-top: 8px;
+            backdrop-filter: blur(12px);
+        }
+
+        .sort-dropdown.active {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .sort-option {
+            padding: 10px 12px;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 13px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            /* To show checkmark if needed */
+            border-radius: 6px;
+            margin-bottom: 2px;
+        }
+
+        .sort-option:hover {
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .sort-option.active {
+            color: var(--accent);
+            background: rgba(212, 175, 55, 0.1);
+            font-weight: 500;
+        }
+
         /* Filter Button */
         .filter-btn {
             display: flex;
@@ -540,32 +597,106 @@
 
         .player-info {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 40px;
+            position: relative;
+            z-index: 2;
         }
 
         .player-title {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--text);
+            font-size: 28px;
+            font-weight: 800;
+            color: #fff;
             margin-bottom: 8px;
+            letter-spacing: -0.5px;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+            background: linear-gradient(180deg, #fff 0%, #ccc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .player-meta {
             color: var(--accent);
-            font-size: 14px;
+            font-size: 16px;
+            font-weight: 500;
+            opacity: 0.9;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
         }
 
         .controls {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 24px;
-            margin-bottom: 30px;
+            gap: 30px;
+            margin-bottom: 24px;
             width: 100%;
             flex-wrap: wrap;
-            /* Allow wrapping on small screens */
             min-width: 200px;
-            /* Added to prevent hiding */
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 20px 40px;
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Utility Section Styles */
+        .player-utilities {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 20px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .volume-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .volume-icon {
+            color: var(--text-muted);
+            width: 20px;
+            height: 20px;
+        }
+
+        .utility-actions {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .utility-btn {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .utility-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--accent);
+            border-color: var(--accent);
         }
 
         .control-btn {
@@ -634,25 +765,33 @@
 
         input[type="range"] {
             width: 100%;
-            height: 4px;
+            height: 6px;
             background: rgba(255, 255, 255, 0.1);
-            border-radius: 2px;
+            border-radius: 3px;
             appearance: none;
             outline: none;
+            transition: background 0.3s;
+        }
+
+        input[type="range"]:hover {
+            background: rgba(255, 255, 255, 0.15);
         }
 
         input[type="range"]::-webkit-slider-thumb {
             appearance: none;
-            width: 12px;
-            height: 12px;
+            width: 16px;
+            height: 16px;
             background: var(--accent);
             border-radius: 50%;
             cursor: pointer;
-            transition: transform 0.1s;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
+            border: 2px solid #fff;
         }
 
         input[type="range"]::-webkit-slider-thumb:hover {
-            transform: scale(1.5);
+            transform: scale(1.2);
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.6);
         }
 
         #toast-container {
@@ -893,6 +1032,218 @@
             border-color: var(--accent);
         }
 
+        /* ========================================== */
+        /* Professional Equalizer Styles */
+        /* ========================================== */
+        .eq-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            margin-top: 16px;
+        }
+
+        .eq-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .eq-btn.active {
+            background: rgba(212, 175, 55, 0.15);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .eq-modal .modal-content {
+            max-width: 420px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .eq-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .eq-toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 13px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .eq-toggle-switch.active {
+            background: var(--accent);
+        }
+
+        .eq-toggle-knob {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .eq-toggle-switch.active .eq-toggle-knob {
+            transform: translateX(24px);
+        }
+
+        .eq-sliders-container {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .eq-slider-group {
+            margin-bottom: 16px;
+        }
+
+        .eq-slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .eq-slider-value {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .eq-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        .eq-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+            transition: transform 0.1s;
+        }
+
+        .eq-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .eq-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        .eq-presets {
+            margin-bottom: 20px;
+        }
+
+        .eq-presets-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .eq-presets-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .eq-preset-btn {
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .eq-preset-btn:hover {
+            border-color: var(--accent);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .eq-preset-btn.active {
+            background: rgba(212, 175, 55, 0.15);
+            border-color: var(--accent);
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .eq-recommendation {
+            background: rgba(212, 175, 55, 0.05);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .eq-recommendation-title {
+            font-size: 11px;
+            color: var(--accent);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .eq-recommendation-text {
+            font-size: 13px;
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        .eq-recommendation-apply {
+            margin-top: 12px;
+            padding: 8px 16px;
+            background: var(--accent);
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .eq-recommendation-apply:hover {
+            transform: scale(1.05);
+        }
+
         .playlists-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -956,43 +1307,115 @@
             background: rgba(212, 175, 55, 0.2);
         }
 
+        /* Playlist Grid - Premium Look */
+        .playlists-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 20px;
+            padding-bottom: 20px;
+        }
+
+        .playlist-card {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 20px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .playlist-card:hover {
+            transform: translateY(-8px);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(212, 175, 55, 0.3);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .playlist-image {
+            width: 100%;
+            aspect-ratio: 1;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .playlist-card:hover .playlist-image {
+            transform: scale(1.05);
+        }
+
+        .playlist-info {
+            width: 100%;
+        }
+
+        .playlist-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .playlist-meta {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
         /* Playlist Detail Buttons */
         .playlist-action-btn {
             width: 100%;
             padding: 14px;
-            border-radius: var(--radius);
+            border-radius: 12px;
             font-weight: 600;
             font-size: 14px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             margin-bottom: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .playlist-action-btn.play {
             background: var(--accent);
             color: #000;
             border: none;
-            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2);
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
         }
 
         .playlist-action-btn.play:hover {
-            box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
+            box-shadow: 0 8px 25px rgba(212, 175, 55, 0.5);
             transform: translateY(-2px);
         }
 
         .playlist-action-btn.add {
             background: rgba(255, 255, 255, 0.05);
-            color: var(--text);
-            border: 1px solid var(--border);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .playlist-action-btn.add:hover {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: var(--accent);
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
         }
 
         .playlist-action-btn.delete {
@@ -1004,64 +1427,80 @@
         .playlist-action-btn.delete:hover {
             background: rgba(255, 68, 68, 0.2);
             border-color: #ff4444;
+            transform: translateY(-2px);
         }
 
+        /* Playlist Detail - Hero Header */
         .playlist-detail {
-            background: rgba(212, 175, 55, 0.06);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 20px;
-            margin-bottom: 16px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 30px;
+            margin-bottom: 24px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
         }
 
         .detail-header {
             display: flex;
             align-items: center;
-            gap: 16px;
-            margin-bottom: 20px;
+            gap: 24px;
+            margin-bottom: 24px;
         }
 
         .detail-image {
-            width: 80px;
-            height: 80px;
-            border-radius: 8px;
-            background: rgba(212, 175, 55, 0.2);
+            width: 120px;
+            height: 120px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, var(--accent) 0%, rgba(212, 175, 55, 0.2) 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 40px;
+            font-size: 50px;
             flex-shrink: 0;
+            box-shadow: 0 10px 30px rgba(212, 175, 55, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .detail-text h3 {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--accent);
-            margin-bottom: 4px;
+            font-size: 32px;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+            text-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
         }
 
         .detail-text p {
-            font-size: 12px;
+            font-size: 14px;
             color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 500;
         }
 
         .back-btn {
             background: rgba(255, 255, 255, 0.05);
-            border: none;
+            border: 1px solid rgba(255, 255, 255, 0.1);
             color: var(--text-muted);
-            padding: 8px 12px;
-            border-radius: 4px;
+            padding: 10px 16px;
+            border-radius: 12px;
             cursor: pointer;
-            margin-bottom: 16px;
-            display: flex;
+            margin-bottom: 20px;
+            display: inline-flex;
             align-items: center;
-            gap: 6px;
-            font-size: 13px;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
         }
 
         .back-btn:hover {
-            color: var(--text);
+            color: #fff;
             background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateX(-4px);
         }
 
         .control-btn:hover {
@@ -1864,6 +2303,21 @@
             border-color: var(--gold);
         }
 
+        /* AURA VISUALIZER */
+        #aura-canvas {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 160%;
+            height: 160%;
+            z-index: 1;
+            /* Behind vinyl (which controls usually are above, but vinyl itself needs check) */
+            pointer-events: none;
+            opacity: 0.8;
+            filter: blur(8px);
+        }
+
         /* Slight pulse on the info text */
         .flow-active .player-info {
             text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
@@ -1953,7 +2407,19 @@
                 </div>
 
                 <!-- Favorites Filter -->
-                <div style="margin-bottom: 20px; display: flex; gap: 8px;">
+                <!-- Filter & Sort Bar -->
+                <div class="filter-container">
+                    <button class="filter-btn" id="sort-btn" onclick="toggleSortMenu()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="21" y1="10" x2="3" y2="10"></line>
+                            <line x1="21" y1="6" x2="3" y2="6"></line>
+                            <line x1="21" y1="14" x2="3" y2="14"></line>
+                            <line x1="21" y1="18" x2="3" y2="18"></line>
+                        </svg>
+                        <span>Sortieren</span>
+                    </button>
+
                     <button class="filter-btn" id="favorites-filter-btn" onclick="toggleFavoritesFilter()">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2">
@@ -1961,8 +2427,18 @@
                                 d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z">
                             </path>
                         </svg>
-                        <span>Nur Favoriten</span>
+                        <span>Favoriten</span>
                     </button>
+
+                    <!-- Dropdown Menu -->
+                    <div class="sort-dropdown" id="sort-dropdown">
+                        <div class="sort-option active" onclick="setSortMethod('dateDesc')">Neueste zuerst</div>
+                        <div class="sort-option" onclick="setSortMethod('dateAsc')">Älteste zuerst</div>
+                        <div class="sort-option" onclick="setSortMethod('nameAsc')">Name (A-Z)</div>
+                        <div class="sort-option" onclick="setSortMethod('nameDesc')">Name (Z-A)</div>
+                        <div class="sort-option" onclick="setSortMethod('durationDesc')">Längste Dauer</div>
+                        <div class="sort-option" onclick="setSortMethod('mostPlayed')">Meistgehört</div>
+                    </div>
                 </div>
 
                 <div class="upload-zone" onclick="document.getElementById('file-input').click()">
@@ -1991,21 +2467,7 @@
                     </svg>
                     Zurück
                 </button>
-                <button class="control-btn" onclick="nextSong()">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
-                    </svg>
-                </button>
-                <button class="control-btn" id="sonic-enhance-btn" onclick="toggleSonicEnhancer()"
-                    style="margin-left: 15px; color: #ffd700;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path
-                            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z">
-                        </path>
-                        <path d="M2 22h20M12 6v2"></path>
-                        <path d="M8 8l2 2M16 8l-2 2"></path>
-                    </svg>
-                </button>
+
                 <div class="playlist-detail" id="playlist-detail-container"></div>
                 <div class="songs-list" id="playlist-songs-list"></div>
                 <!-- Queue Section -->
@@ -2017,6 +2479,7 @@
                 <div class="player-container">
                     <!-- Vinyl Record -->
                     <div class="vinyl-container">
+                        <canvas id="aura-canvas"></canvas>
                         <div class="vinyl-record" id="vinyl-record">
                             <div class="vinyl-hole"></div>
                         </div>
@@ -2057,6 +2520,7 @@
                                 <path d="M5 4l10 8-10 8V4zM19 5v14h-2V5h2z" />
                             </svg>
                         </button>
+
                         <button class="control-btn" id="player-favorite-btn" onclick="toggleCurrentFavorite()"
                             title="Favorit">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2072,12 +2536,44 @@
                         </div>
                         <input type="range" id="progress-bar" min="0" max="100" value="0" oninput="seekTrack()">
                     </div>
-                    <div class="settings-group">
-                        <label class="settings-label">LAUTSTÄRKE</label>
-                        <div class="settings-control">
-                            <input type="range" id="volume-control" min="0" max="100" value="80"
-                                class="settings-slider">
-                            <span class="settings-value" id="volume-value">80%</span>
+                    <!-- Utility Area (Volume, EQ, Share) -->
+                    <div class="player-utilities">
+                        <div class="volume-container">
+                            <svg class="volume-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07" />
+                            </svg>
+                            <input type="range" id="volume-control" min="0" max="100" value="80" class="volume-slider">
+                        </div>
+
+                        <div class="utility-actions">
+                            <button class="utility-btn" onclick="toggleEqualizerPanel()">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <line x1="4" y1="21" x2="4" y2="14"></line>
+                                    <line x1="4" y1="10" x2="4" y2="3"></line>
+                                    <line x1="12" y1="21" x2="12" y2="12"></line>
+                                    <line x1="12" y1="8" x2="12" y2="3"></line>
+                                    <line x1="20" y1="21" x2="20" y2="16"></line>
+                                    <line x1="20" y1="12" x2="20" y2="3"></line>
+                                    <line x1="1" y1="14" x2="7" y2="14"></line>
+                                    <line x1="9" y1="8" x2="15" y2="8"></line>
+                                    <line x1="17" y1="16" x2="23" y2="16"></line>
+                                </svg>
+                                <span>Equalizer</span>
+                            </button>
+
+                            <button class="utility-btn" onclick="shareCurrentSong()">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="18" cy="5" r="3"></circle>
+                                    <circle cx="6" cy="12" r="3"></circle>
+                                    <circle cx="18" cy="19" r="3"></circle>
+                                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                                </svg>
+                                <span>Teilen</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -2127,6 +2623,18 @@
                         <label class="settings-label">INFORMATION</label>
                         <p style="font-size: 13px; color: var(--text-muted);">Premium Musik-Management App mit IndexedDB
                             Persistierung</p>
+                    </div>
+
+                    <div class="settings-group">
+                        <div class="settings-toggle">
+                            <label class="settings-label" style="margin:0">✨ AURA VISUALIZER</label>
+                            <label class="switch">
+                                <input type="checkbox" id="aura-toggle-btn" onchange="toggleAura()">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-top: 5px;">Reaktiver Gold-Effekt
+                            hinter der Platte</p>
                     </div>
 
                     <div class="settings-group">
@@ -2257,6 +2765,102 @@
             <div class="modal-buttons">
                 <button class="modal-btn secondary" onclick="closeModal('edit-song-modal')">Abbrechen</button>
                 <button class="modal-btn primary" onclick="saveSongTitle()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Equalizer Modal -->
+    <div id="eq-modal" class="modal eq-modal">
+        <div class="modal-content">
+            <div class="eq-header">
+                <div class="modal-title">🎚️ Professional Equalizer</div>
+                <div class="eq-toggle-switch" id="eq-main-toggle" onclick="toggleEQ()">
+                    <div class="eq-toggle-knob"></div>
+                </div>
+            </div>
+
+            <!-- Song Recommendation -->
+            <div class="eq-recommendation" id="eq-recommendation" style="display: none;">
+                <div class="eq-recommendation-title">💡 Empfeh lung für diesen Song</div>
+                <div class="eq-recommendation-text" id="eq-recommendation-text"></div>
+                <button class="eq-recommendation-apply" onclick="applyRecommendedEQ()">Anwenden</button>
+            </div>
+
+            <!-- Presets -->
+            <div class="eq-presets">
+                <div class="eq-presets-label">Presets</div>
+                <div class="eq-presets-grid">
+                    <button class="eq-preset-btn active" onclick="applyEQPreset('flat')">Flat (Aus)</button>
+                    <button class="eq-preset-btn" onclick="applyEQPreset('bassBoost')">Bass Boost</button>
+                    <button class="eq-preset-btn" onclick="applyEQPreset('vocal')">Vocal</button>
+                    <button class="eq-preset-btn" onclick="applyEQPreset('classical')">Klassik</button>
+                    <button class="eq-preset-btn" onclick="applyEQPreset('rock')">Rock</button>
+                    <button class="eq-preset-btn" onclick="applyEQPreset('electronic')">Electronic</button>
+                    <button class="eq-preset-btn" onclick="applyEQPreset('jazz')">Jazz</button>
+                    <button class="eq-preset-btn" onclick="applyEQPreset('hiphop')">Hip-Hop</button>
+                </div>
+            </div>
+
+            <!-- 5-Band EQ Sliders -->
+            <div class="eq-sliders-container">
+                <div class="eq-slider-group">
+                    <div class="eq-slider-label">
+                        <span>Bass (60Hz)</span>
+                        <span class="eq-slider-value" id="eq-bass-value">0 dB</span>
+                    </div>
+                    <input type="range" class="eq-slider" id="eq-bass" min="-12" max="12" value="0" step="0.5"
+                        oninput="updateEQBand('bass', this.value)">
+                </div>
+
+                <div class="eq-slider-group">
+                    <div class="eq-slider-label">
+                        <span>Low-Mid (250Hz)</span>
+                        <span class="eq-slider-value" id="eq-lowMid-value">0 dB</span>
+                    </div>
+                    <input type="range" class="eq-slider" id="eq-lowMid" min="-12" max="12" value="0" step="0.5"
+                        oninput="updateEQBand('lowMid', this.value)">
+                </div>
+
+                <div class="eq-slider-group">
+                    <div class="eq-slider-label">
+                        <span>Mid (1kHz)</span>
+                        <span class="eq-slider-value" id="eq-mid-value">0 dB</span>
+                    </div>
+                    <input type="range" class="eq-slider" id="eq-mid" min="-12" max="12" value="0" step="0.5"
+                        oninput="updateEQBand('mid', this.value)">
+                </div>
+
+                <div class="eq-slider-group">
+                    <div class="eq-slider-label">
+                        <span>High-Mid (4kHz)</span>
+                        <span class="eq-slider-value" id="eq-highMid-value">0 dB</span>
+                    </div>
+                    <input type="range" class="eq-slider" id="eq-highMid" min="-12" max="12" value="0" step="0.5"
+                        oninput="updateEQBand('highMid', this.value)">
+                </div>
+
+                <div class="eq-slider-group">
+                    <div class="eq-slider-label">
+                        <span>Treble (12kHz)</span>
+                        <span class="eq-slider-value" id="eq-treble-value">0 dB</span>
+                    </div>
+                    <input type="range" class="eq-slider" id="eq-treble" min="-12" max="12" value="0" step="0.5"
+                        oninput="updateEQBand('treble', this.value)">
+                </div>
+
+                <div class="eq-slider-group">
+                    <div class="eq-slider-label">
+                        <span>🎭 Stereo Width</span>
+                        <span class="eq-slider-value" id="eq-stereo-value">0%</span>
+                    </div>
+                    <input type="range" class="eq-slider" id="eq-stereo" min="0" max="100" value="0" step="5"
+                        oninput="updateEQBand('stereo', this.value)">
+                </div>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="modal-btn secondary" onclick="closeModal('eq-modal')">Schließen</button>
+                <button class="modal-btn primary" onclick="resetEQ()">Zurücksetzen</button>
             </div>
         </div>
     </div>

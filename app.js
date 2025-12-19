@@ -1988,10 +1988,55 @@ function formatTime(seconds) {
 }
 
 function setupVolumeControl() {
-  document.getElementById("volume-control").addEventListener("input", function () {
-    document.getElementById("audio-player").volume = this.value / 100
-    document.getElementById("volume-value").textContent = this.value + "%"
-  })
+  const volumeSlider = document.getElementById("volume-control");
+  const volumeValue = document.getElementById("volume-value");
+  const audio1 = document.getElementById("audio-player");
+  const audio2 = document.getElementById("audio-player-2");
+
+  const updateVolume = (value) => {
+    // Clamp value between 0 and 100
+    const clampedValue = Math.min(100, Math.max(0, value));
+
+    // Update Slider UI visual manually
+    volumeSlider.value = clampedValue;
+
+    // Update Text
+    if (volumeValue) volumeValue.textContent = Math.round(clampedValue) + "%";
+
+    // Update Audio
+    if (audio1) audio1.volume = clampedValue / 100;
+    if (audio2) audio2.volume = clampedValue / 100;
+  };
+
+  volumeSlider.addEventListener("input", function () {
+    updateVolume(this.value);
+  });
+
+  // NUCLEAR OPTION: Manual Touch Tracking
+  // We completely take over the touch interaction to ensure NO scroll events leak.
+  const handleTouch = (e) => {
+    // PREVENT EVERYTHING. No scrolling, no native slider drag (we do it manually), no swiping.
+    if (e.cancelable) e.preventDefault();
+    e.stopPropagation();
+
+    const touch = e.touches[0];
+    const rect = volumeSlider.getBoundingClientRect();
+    const offsetX = touch.clientX - rect.left;
+    const width = rect.width;
+
+    // Calculate percentage
+    let percentage = (offsetX / width) * 100;
+    updateVolume(percentage);
+  };
+
+  // Add non-passive listeners to allow preventDefault()
+  volumeSlider.addEventListener("touchstart", handleTouch, { passive: false });
+  volumeSlider.addEventListener("touchmove", handleTouch, { passive: false });
+  volumeSlider.addEventListener("touchend", (e) => {
+    // Also prevent mouse emulation
+    if (e.cancelable) e.preventDefault();
+    e.stopPropagation();
+  }, { passive: false });
 }
 
 // ============================================
@@ -2839,6 +2884,9 @@ if ('serviceWorker' in navigator) {
       .then(registration => {
         console.log('ServiceWorker registration successful');
 
+        // FORCE UPDATE: Ensure we always try to get the latest version
+        registration.update();
+
         // Check if we were opened via Share Target (URL param)
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('shared') === 'true') {
@@ -2868,7 +2916,9 @@ if ('serviceWorker' in navigator) {
             dateAdded: new Date().toISOString(),
             playCount: 0,
             isFavorite: false
-          };
+          }
+
+
 
           await saveSongToDB(newSong);
           songs.push(newSong);
